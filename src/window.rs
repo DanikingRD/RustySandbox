@@ -1,9 +1,12 @@
 use winit::{event_loop::EventLoop, window};
 
-use crate::{error::Error, renderer::{self, Renderer}};
+use crate::{
+    error::Error,
+    renderer::{self, Renderer},
+};
 
 pub struct Window {
-    window: window::Window,
+    raw: window::Window,
 }
 
 impl Window {
@@ -14,8 +17,11 @@ impl Window {
 
         let renderer = renderer::Renderer::new(&window)?;
 
-        let this = Self { window };
+        let this = Self { raw: window };
 
         Ok((this, event_loop, renderer))
+    }
+    pub fn raw(&self) -> &window::Window {
+        &self.raw
     }
 }
