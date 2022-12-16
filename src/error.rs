@@ -13,7 +13,7 @@ pub enum RendererError {
     SurfaceError(wgpu::SurfaceError),
 }
 
-/// Cast RenderError back to base Error
+/// Cast RendererError back to base Error
 impl From<RendererError> for Error {
     fn from(error: RendererError) -> Self {
         Self::Render(error)
@@ -26,6 +26,7 @@ impl From<RequestDeviceError> for RendererError {
     }
 }
 
+/// Cast WGPU builtin [SurfaceError] to [Renderer Error]
 impl From<SurfaceError> for RendererError {
     fn from(error: SurfaceError) -> Self {
         Self::SurfaceError(error)

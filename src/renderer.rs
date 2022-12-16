@@ -1,4 +1,5 @@
 use tracing::info;
+use winit::dpi::PhysicalSize;
 
 use crate::error::RendererError;
 /// The `Renderer` is the SandBox's rendering system.
@@ -8,6 +9,8 @@ pub struct Renderer {
     surface_cfg: wgpu::SurfaceConfiguration,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    /// Content of the inner window, excluding the title bar and borders.
+    dimensions: PhysicalSize<u32>,
 }
 
 impl Renderer {
@@ -67,6 +70,7 @@ impl Renderer {
             device,
             queue,
             surface_cfg,
+            dimensions,
         };
         Ok(renderer)
     }
@@ -105,5 +109,12 @@ impl Renderer {
         self.queue.submit(std::iter::once(encoder.finish()));
         texture.present();
         Ok(())
+    }
+
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        self.dimensions = new_size;
+        self.surface_cfg.width = self.dimensions.width.max(1);
+        self.surface_cfg.height = self.dimensions.height.max(1);
+        self.surface.configure(&self.device, &self.surface_cfg);
     }
 }
