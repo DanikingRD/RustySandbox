@@ -1,28 +1,27 @@
-use std::path::PathBuf;
 
-use egui_wgpu_backend::RenderPass;
-use tracing::{info, warn};
+use tracing::{info};
 use wgpu::{
-    util::DeviceExt, BufferUsages, CommandEncoder, SurfaceError, SurfaceTexture, TextureView,
+    util::DeviceExt, BufferUsages, CommandEncoder,SurfaceTexture,
 };
 use winit::dpi::PhysicalSize;
 
 use crate::{
     error::RendererError,
-    vertex::{Vertex, VERTICES},
+    vertex::{Vertex},
 };
 /// The `Renderer` is the SandBox's rendering system.
 /// It can interact with the GPU.  
-pub struct Renderer {
+pub struct Renderer  {
     pub surface: wgpu::Surface,
     pub surface_config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
+    pub vertices: [Vertex; 3],
+    pub vertex_buffer: wgpu::Buffer,
 
     /// Content of the inner window, excluding the title bar and borders.
     dimensions: PhysicalSize<u32>,
     pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
     clear_color: wgpu::Color,
 }
 
@@ -130,10 +129,16 @@ impl Renderer {
             multiview: None,
         });
 
+        #[rustfmt::skip]
+        let vertices = [
+            Vertex { position: [0.0, 0.5, 0.0], color: [1.0, 0.0, 0.0] },
+            Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
+            Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
+        ];
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: BufferUsages::VERTEX,
+            contents: bytemuck::cast_slice(&vertices),
+            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
         });
 
         let renderer = Self {
@@ -150,6 +155,7 @@ impl Renderer {
                 b: 0.5,
                 a: 1.0,
             },
+            vertices,
         };
         Ok(renderer)
     }
@@ -181,7 +187,7 @@ impl Renderer {
             });
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..VERTICES.len() as u32, 0..1);
+            render_pass.draw(0..self.vertices.len() as u32, 0..1);
         }
         return texture;
     }

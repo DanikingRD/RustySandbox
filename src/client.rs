@@ -1,6 +1,4 @@
 use egui_wgpu_backend::RenderPass;
-use tracing::warn;
-use wgpu::SurfaceError;
 
 use crate::{
     egui_instance::EguiInstance, error::RendererError, renderer::Renderer, window::Window,
