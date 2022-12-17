@@ -21,6 +21,7 @@ pub struct Renderer {
     pub egui_renderpass: egui_wgpu_backend::RenderPass,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
+    clear_color: wgpu::Color,
 }
 
 impl Renderer {
@@ -96,23 +97,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
-                buffers: &[
-                    VertexBufferLayout {
-                    array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &[
-                        wgpu::VertexAttribute {
-                            offset: 0,
-                            format: wgpu::VertexFormat::Float32x3,
-                            shader_location: 0,
-                        },
-                        wgpu::VertexAttribute {
-                            offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                            shader_location: 1,
-                            format: wgpu::VertexFormat::Float32x3,
-                        },
-                    ],
-                }],
+                buffers: &[Vertex::layout()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -161,6 +146,12 @@ impl Renderer {
             egui_renderpass,
             pipeline,
             vertex_buffer,
+            clear_color: wgpu::Color {
+                r: 0.2,
+                g: 0.6,
+                b: 0.5,
+                a: 1.0,
+            }
         };
         Ok(renderer)
     }
@@ -183,12 +174,7 @@ impl Renderer {
                     view: &texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.clear_color),
                         store: true,
                     },
                 })],
@@ -196,11 +182,12 @@ impl Renderer {
             });
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..3, 0..1);
+            render_pass.draw(0..VERTICES.len() as u32, 0..1);
         }
         // Submit work for this frame
         self.queue.submit(std::iter::once(encoder.finish()));
         texture.present();
+
         let borrow = RendererBorrow {
             surface: &self.surface,
             surface_config: &self.surface_config,

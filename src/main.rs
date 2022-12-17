@@ -1,5 +1,4 @@
 use client::Client;
-use egui_instance::draw_egui;
 use error::RendererError;
 
 use tracing::{span, warn, Level};
@@ -14,6 +13,7 @@ mod error;
 mod renderer;
 mod vertex;
 mod window;
+
 fn main() {
     std::env::set_var("RUST_LOG", "info");
     tracing_subscriber::FmtSubscriber::new().init();
