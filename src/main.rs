@@ -1,4 +1,5 @@
 use client::Client;
+use egui_instance::draw_egui;
 use error::RendererError;
 
 use tracing::{span, warn, Level};
@@ -8,16 +9,16 @@ use wgpu::SurfaceError;
 use winit::{event, event_loop::EventLoop};
 
 mod client;
+mod egui_instance;
 mod error;
 mod renderer;
 mod window;
-
 fn main() {
     std::env::set_var("RUST_LOG", "info");
     tracing_subscriber::FmtSubscriber::new().init();
-    
+
     let span = span!(Level::INFO, "Initialize");
-    
+
     let _guard = span.enter();
     let (window, event_loop) = match crate::window::Window::new() {
         Ok(instance) => instance,
@@ -29,40 +30,55 @@ fn main() {
 }
 
 pub fn run(runnable: EventLoop<()>, mut client: Client) {
-    runnable.run(move |event, _, control_flow| match event {
-        event::Event::WindowEvent { window_id, event } => {
-            let span = tracing::span!(Level::INFO, "Window Events");
-            let _guard = span.enter();
+    runnable.run(move |event, _, control_flow| {
+        client.egui.platform.captures_event(&event);
+        match event {
+            event::Event::WindowEvent { window_id, event } => {
+                let span = tracing::span!(Level::INFO, "Window Events");
 
-            if window_id == client.window_id() {
-                client
-                    .window_mut()
-                    .handle_window_events(event, control_flow);
+                let _guard = span.enter();
+
+                if window_id == client.window_id() {
+                    client
+                        .window_mut()
+                        .handle_window_events(event, control_flow);
+                }
             }
-        }
-        event::Event::MainEventsCleared => {
-            on_redraw_requested(&mut client)
+            event::Event::MainEventsCleared => {
+                client.window().raw().request_redraw();
+            }
+            event::Event::RedrawRequested(..) => {
+                on_redraw_requested(&mut client)
                 .expect("Unrecoverable Error when preparing for next frame");
+            }
+            _ => (),
         }
-        _ => (),
     });
 }
 
 fn on_redraw_requested(client: &mut Client) -> Result<(), RendererError> {
-    if let Err(e) = client.window_mut().renderer_mut().start_render() {
-        match e {
-            // TODO: handle render errors
-            RendererError::SurfaceError(e) => {
-                warn!("{:?}", e);
-                match e {
-                    SurfaceError::Lost => todo!(),
-                    SurfaceError::OutOfMemory => todo!(),
-                    // All other errors should be resolved on the next frame
-                    _ => return Ok(()),
+    let span = span!(Level::INFO, "Render");
+    let _guard = span.enter();
+    let frame = client.window_mut().renderer_mut().start_render();
+    match frame {
+        Ok(render) => {
+           // draw_egui(&mut client.egui.platform, render);
+        },
+        Err(err) => {
+            match err {
+                // TODO: handle render errors
+                RendererError::SurfaceError(e) => {
+                    warn!("{:?}", e);
+                    match e {
+                        SurfaceError::Lost => todo!(),
+                        SurfaceError::OutOfMemory => todo!(),
+                        // All other errors should be resolved on the next frame
+                        _ => return Ok(()),
+                    }
                 }
+                _ => return Err(err),
             }
-            _ => return Err(e),
-        }
+        },
     }
     Ok(())
 }

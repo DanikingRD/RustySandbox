@@ -1,3 +1,4 @@
+use egui_wgpu_backend::RenderPass;
 use tracing::info;
 use winit::dpi::PhysicalSize;
 
@@ -5,12 +6,13 @@ use crate::error::RendererError;
 /// The `Renderer` is the SandBox's rendering system.
 /// It can interact with the GPU.  
 pub struct Renderer {
-    surface: wgpu::Surface,
-    surface_cfg: wgpu::SurfaceConfiguration,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub surface: wgpu::Surface,
+    pub surface_config: wgpu::SurfaceConfiguration,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
     /// Content of the inner window, excluding the title bar and borders.
     dimensions: PhysicalSize<u32>,
+    pub egui_renderpass: egui_wgpu_backend::RenderPass,
 }
 
 impl Renderer {
@@ -55,9 +57,10 @@ impl Renderer {
 
         let dimensions = window.inner_size();
 
+        let format = surface.get_supported_formats(&adapter)[0];
         let surface_cfg = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_supported_formats(&adapter)[0],
+            format,
             width: dimensions.width,
             height: dimensions.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -65,17 +68,21 @@ impl Renderer {
         };
         surface.configure(&device, &surface_cfg);
 
+        // We use the egui_wgpu_backend crate as the render backend.
+        let egui_renderpass = RenderPass::new(&device, format, 1);
+
         let renderer = Self {
             surface,
             device,
             queue,
-            surface_cfg,
+            surface_config: surface_cfg,
             dimensions,
+            egui_renderpass,
         };
         Ok(renderer)
     }
 
-    pub fn start_render(&mut self) -> Result<(), RendererError> {
+    pub fn start_render(&mut self) -> Result<RendererBorrow, RendererError> {
         let texture = self.surface.get_current_texture()?;
         let mut encoder = self
             .device
@@ -108,13 +115,33 @@ impl Renderer {
         // Submit work for this frame
         self.queue.submit(std::iter::once(encoder.finish()));
         texture.present();
-        Ok(())
+        let borrow = RendererBorrow {
+            surface: &self.surface,
+            surface_config: &self.surface_config,
+            device: &self.device,
+            queue: &self.queue,
+            egui_render_pass: &mut self.egui_renderpass,
+            
+        };
+        Ok(borrow)
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.dimensions = new_size;
-        self.surface_cfg.width = self.dimensions.width.max(1);
-        self.surface_cfg.height = self.dimensions.height.max(1);
-        self.surface.configure(&self.device, &self.surface_cfg);
+        // Resize with 0 width and height is used by winit to signal a minimize event on Windows.
+        // See: https://github.com/rust-windowing/winit/issues/208
+        // This solves an issue where the app would panic when minimizing on Windows.
+        self.surface_config.width = self.dimensions.width.max(1);
+        self.surface_config.height = self.dimensions.height.max(1);
+        self.surface.configure(&self.device, &self.surface_config);
     }
+}
+
+
+pub struct RendererBorrow<'a>  {
+    pub surface: &'a wgpu::Surface,
+    pub surface_config: &'a wgpu::SurfaceConfiguration,
+    pub device: &'a wgpu::Device,
+    pub queue: &'a wgpu::Queue,
+    pub egui_render_pass: &'a mut egui_wgpu_backend::RenderPass,
 }

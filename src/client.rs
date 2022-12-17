@@ -1,12 +1,19 @@
-use crate::window::Window;
+use std::{time::Instant, iter};
+
+use egui_wgpu_backend::ScreenDescriptor;
+use tracing::{span, Level};
+
+use crate::{egui_instance::EguiInstance, window::Window, renderer::RendererBorrow};
 
 pub struct Client {
     window: Window,
+    pub egui: EguiInstance,
 }
 
 impl Client {
     pub fn init(window: Window) -> Self {
-        Self { window }
+        let egui = EguiInstance::new(&window.raw());
+        Self { window, egui }
     }
 
     pub fn window(&self) -> &Window {
