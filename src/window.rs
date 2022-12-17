@@ -11,7 +11,6 @@ use crate::{
 
 pub struct Window {
     winit: window::Window,
-    pub scale_factor: f64,
 }
 
 impl Window {
@@ -22,10 +21,7 @@ impl Window {
 
         let renderer = renderer::Renderer::new(&window)?;
 
-        let this = Self {
-            scale_factor: window.scale_factor(),
-            winit: window,
-        };
+        let this = Self { winit: window };
 
         Ok((this, event_loop, renderer))
     }

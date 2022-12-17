@@ -1,12 +1,12 @@
 use client::Client;
 use error::RendererError;
 
-use tracing::{span, warn, Level};
+use tracing::{span, Level};
 use tracing_subscriber::util::SubscriberInitExt;
-use wgpu::SurfaceError;
 use winit::{event, event_loop::EventLoop};
 
 mod client;
+mod cube;
 mod egui_instance;
 mod error;
 mod renderer;

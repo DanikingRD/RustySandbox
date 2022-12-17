@@ -1,5 +1,3 @@
-use std::{iter, process::Command, time::Instant};
-
 use egui::FontDefinitions;
 use egui_wgpu_backend::ScreenDescriptor;
 use egui_winit_platform::{Platform, PlatformDescriptor};
@@ -52,24 +50,17 @@ impl EguiInstance {
             .resizable(true)
             .title_bar(false)
             .show(&self.platform.context(), |ui| {
-                renderer.vertices = [  
-                    
-                    Vertex { position: [self.x, self.y, 0.0], color: [1.0, 0.0, 0.0] },
-                    Vertex { position: [-0.5, -0.5, 0.0], color: [0.0, 1.0, 0.0] },
-                    Vertex { position: [0.5, -0.5, 0.0], color: [0.0, 0.0, 1.0] },
-                ];
-                
+            
                 ui.label("Upper Vertex X position");
-                let slider =ui.add(egui::Slider::new(&mut self.x, -1.0..=1.0));
+                let slider = ui.add(egui::Slider::new(&mut self.x, -1.0..=1.0));
                 if slider.changed() {
-                    renderer.queue.write_buffer(&renderer.vertex_buffer, 0, bytemuck::cast_slice(&renderer.vertices));
+                   
                 }
                 ui.label("Upper Vertex Y position");
                 let slider = ui.add(egui::Slider::new(&mut self.y, -1.0..=1.0));
                 if slider.changed() {
-                    renderer.queue.write_buffer(&renderer.vertex_buffer, 0, bytemuck::cast_slice(&renderer.vertices));
+                   
                 }
-                println!("{}, {}", self.x, self.y);
             });
 
         let full_output = self.platform.end_frame(None);
@@ -103,8 +94,10 @@ impl EguiInstance {
         self.render_pass
             .execute(encoder, &view, &paint_jobs, &screen_descriptor, None)
             .unwrap();
-        
-        self.render_pass.remove_textures(tdelta).expect("Failed to remove texture");
+
+        self.render_pass
+            .remove_textures(tdelta)
+            .expect("Failed to remove texture");
 
         drop(_guard);
     }
