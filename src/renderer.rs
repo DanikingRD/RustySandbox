@@ -1,7 +1,9 @@
+use std::path::PathBuf;
+
 use egui_wgpu_backend::RenderPass;
-use tracing::info;
+use tracing::{info, warn};
 use wgpu::{
-    util::DeviceExt, BufferUsages, CommandEncoder, SurfaceTexture, TextureView, VertexBufferLayout,
+    util::DeviceExt, BufferUsages, CommandEncoder, SurfaceError, SurfaceTexture, TextureView,
 };
 use winit::dpi::PhysicalSize;
 
@@ -16,9 +18,9 @@ pub struct Renderer {
     pub surface_config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
+
     /// Content of the inner window, excluding the title bar and borders.
     dimensions: PhysicalSize<u32>,
-    pub egui_renderpass: egui_wgpu_backend::RenderPass,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
     clear_color: wgpu::Color,
@@ -77,9 +79,6 @@ impl Renderer {
         };
         surface.configure(&device, &surface_cfg);
 
-        // We use the egui_wgpu_backend crate as the render backend.
-        let egui_renderpass = RenderPass::new(&device, format, 1);
-
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout Descriptor"),
             bind_group_layouts: &[],
@@ -102,7 +101,8 @@ impl Renderer {
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState { // 4.
+                targets: &[Some(wgpu::ColorTargetState {
+                    // 4.
                     format: surface_cfg.format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
@@ -136,14 +136,12 @@ impl Renderer {
             usage: BufferUsages::VERTEX,
         });
 
-
         let renderer = Self {
             surface,
             device,
             queue,
             surface_config: surface_cfg,
             dimensions,
-            egui_renderpass,
             pipeline,
             vertex_buffer,
             clear_color: wgpu::Color {
@@ -151,18 +149,19 @@ impl Renderer {
                 g: 0.6,
                 b: 0.5,
                 a: 1.0,
-            }
+            },
         };
         Ok(renderer)
     }
 
-    pub fn start_render(&mut self) -> Result<RendererBorrow, RendererError> {
-        let texture = self.surface.get_current_texture()?;
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Enconder"),
-            });
+    pub fn start_frame(&mut self, encoder: &mut CommandEncoder) -> SurfaceTexture {
+        let texture = match self.surface.get_current_texture() {
+            Ok(tex) => tex,
+            Err(e) => {
+                eprintln!("{:#?}", e);
+                panic!()
+            }
+        };
         let texture_view = texture
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -184,21 +183,7 @@ impl Renderer {
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.draw(0..VERTICES.len() as u32, 0..1);
         }
-        // Submit work for this frame
-        self.queue.submit(std::iter::once(encoder.finish()));
-        texture.present();
-
-        let borrow = RendererBorrow {
-            surface: &self.surface,
-            surface_config: &self.surface_config,
-            device: &self.device,
-            queue: &self.queue,
-            egui_render_pass: &mut self.egui_renderpass,
-            // encoder,
-            // surface_texture: texture,
-            view: texture_view,
-        };
-        Ok(borrow)
+        return texture;
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -210,15 +195,4 @@ impl Renderer {
         self.surface_config.height = self.dimensions.height.max(1);
         self.surface.configure(&self.device, &self.surface_config);
     }
-}
-
-pub struct RendererBorrow<'a> {
-    pub surface: &'a wgpu::Surface,
-    pub surface_config: &'a wgpu::SurfaceConfiguration,
-    //pub surface_texture: SurfaceTexture,
-    pub device: &'a wgpu::Device,
-    pub queue: &'a wgpu::Queue,
-    pub egui_render_pass: &'a mut egui_wgpu_backend::RenderPass,
-  //  pub encoder: CommandEncoder,
-    pub view: TextureView,
 }
