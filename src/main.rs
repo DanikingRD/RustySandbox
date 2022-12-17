@@ -12,6 +12,7 @@ mod client;
 mod egui_instance;
 mod error;
 mod renderer;
+mod vertex;
 mod window;
 fn main() {
     std::env::set_var("RUST_LOG", "info");
@@ -31,7 +32,7 @@ fn main() {
 
 pub fn run(runnable: EventLoop<()>, mut client: Client) {
     runnable.run(move |event, _, control_flow| {
-        client.egui.platform.captures_event(&event);
+        client.egui.platform.handle_event(&event);
         match event {
             event::Event::WindowEvent { window_id, event } => {
                 let span = tracing::span!(Level::INFO, "Window Events");
@@ -45,11 +46,11 @@ pub fn run(runnable: EventLoop<()>, mut client: Client) {
                 }
             }
             event::Event::MainEventsCleared => {
-                client.window().raw().request_redraw();
+                client.window.raw().request_redraw();
             }
             event::Event::RedrawRequested(..) => {
                 on_redraw_requested(&mut client)
-                .expect("Unrecoverable Error when preparing for next frame");
+                    .expect("Unrecoverable Error when preparing for next frame");
             }
             _ => (),
         }
@@ -59,11 +60,12 @@ pub fn run(runnable: EventLoop<()>, mut client: Client) {
 fn on_redraw_requested(client: &mut Client) -> Result<(), RendererError> {
     let span = span!(Level::INFO, "Render");
     let _guard = span.enter();
-    let frame = client.window_mut().renderer_mut().start_render();
+    let scale_factor = client.window.raw().scale_factor() as f32;
+    let frame = client.window.renderer_mut().start_render();
     match frame {
         Ok(render) => {
-           // draw_egui(&mut client.egui.platform, render);
-        },
+           // draw_egui(&mut client.egui.platform, render, scale_factor);
+        }
         Err(err) => {
             match err {
                 // TODO: handle render errors
@@ -78,7 +80,7 @@ fn on_redraw_requested(client: &mut Client) -> Result<(), RendererError> {
                 }
                 _ => return Err(err),
             }
-        },
+        }
     }
     Ok(())
 }

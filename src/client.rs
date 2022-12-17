@@ -1,12 +1,12 @@
-use std::{time::Instant, iter};
+use std::{iter, time::Instant};
 
 use egui_wgpu_backend::ScreenDescriptor;
 use tracing::{span, Level};
 
-use crate::{egui_instance::EguiInstance, window::Window, renderer::RendererBorrow};
+use crate::{egui_instance::EguiInstance, renderer::RendererBorrow, window::Window};
 
 pub struct Client {
-    window: Window,
+    pub window: Window,
     pub egui: EguiInstance,
 }
 

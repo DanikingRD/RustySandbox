@@ -1,8 +1,14 @@
 use egui_wgpu_backend::RenderPass;
 use tracing::info;
+use wgpu::{
+    util::DeviceExt, BufferUsages, CommandEncoder, SurfaceTexture, TextureView, VertexBufferLayout,
+};
 use winit::dpi::PhysicalSize;
 
-use crate::error::RendererError;
+use crate::{
+    error::RendererError,
+    vertex::{Vertex, VERTICES},
+};
 /// The `Renderer` is the SandBox's rendering system.
 /// It can interact with the GPU.  
 pub struct Renderer {
@@ -13,6 +19,8 @@ pub struct Renderer {
     /// Content of the inner window, excluding the title bar and borders.
     dimensions: PhysicalSize<u32>,
     pub egui_renderpass: egui_wgpu_backend::RenderPass,
+    pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
 }
 
 impl Renderer {
@@ -71,6 +79,79 @@ impl Renderer {
         // We use the egui_wgpu_backend crate as the render backend.
         let egui_renderpass = RenderPass::new(&device, format, 1);
 
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Pipeline Layout Descriptor"),
+            bind_group_layouts: &[],
+            push_constant_ranges: &[],
+        });
+
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader Module"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../assets/shaders/shader.wgsl").into()),
+        });
+
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipelime"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[
+                    VertexBufferLayout {
+                    array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &[
+                        wgpu::VertexAttribute {
+                            offset: 0,
+                            format: wgpu::VertexFormat::Float32x3,
+                            shader_location: 0,
+                        },
+                        wgpu::VertexAttribute {
+                            offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                            shader_location: 1,
+                            format: wgpu::VertexFormat::Float32x3,
+                        },
+                    ],
+                }],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState { // 4.
+                    format: surface_cfg.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            // how to interpret our vertices when converting them into triangles.
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: BufferUsages::VERTEX,
+        });
+
+
         let renderer = Self {
             surface,
             device,
@@ -78,6 +159,8 @@ impl Renderer {
             surface_config: surface_cfg,
             dimensions,
             egui_renderpass,
+            pipeline,
+            vertex_buffer,
         };
         Ok(renderer)
     }
@@ -94,7 +177,7 @@ impl Renderer {
             .create_view(&wgpu::TextureViewDescriptor::default());
 
         {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &texture_view,
@@ -111,6 +194,9 @@ impl Renderer {
                 })],
                 depth_stencil_attachment: None,
             });
+            render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.draw(0..3, 0..1);
         }
         // Submit work for this frame
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -121,7 +207,9 @@ impl Renderer {
             device: &self.device,
             queue: &self.queue,
             egui_render_pass: &mut self.egui_renderpass,
-            
+            // encoder,
+            // surface_texture: texture,
+            view: texture_view,
         };
         Ok(borrow)
     }
@@ -137,11 +225,13 @@ impl Renderer {
     }
 }
 
-
-pub struct RendererBorrow<'a>  {
+pub struct RendererBorrow<'a> {
     pub surface: &'a wgpu::Surface,
     pub surface_config: &'a wgpu::SurfaceConfiguration,
+    //pub surface_texture: SurfaceTexture,
     pub device: &'a wgpu::Device,
     pub queue: &'a wgpu::Queue,
     pub egui_render_pass: &'a mut egui_wgpu_backend::RenderPass,
+  //  pub encoder: CommandEncoder,
+    pub view: TextureView,
 }
