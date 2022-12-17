@@ -2,7 +2,10 @@ use tracing::info;
 use wgpu::{util::DeviceExt, BufferUsages, CommandEncoder, SurfaceTexture};
 use winit::dpi::PhysicalSize;
 
-use crate::{error::RendererError, vertex::{Vertex, VERTICES, INDICES}};
+use crate::{
+    error::RendererError,
+    vertex::{Vertex, INDICES, VERTICES}, buffer::{Buffer},
+};
 /// The `Renderer` is the SandBox's rendering system.
 /// It can interact with the GPU.  
 pub struct Renderer {
@@ -10,8 +13,8 @@ pub struct Renderer {
     pub surface_config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
-    pub vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    pub vertex_buffer: Buffer<Vertex>,
+    index_buffer: Buffer<u16>,
 
     /// Content of the inner window, excluding the title bar and borders.
     dimensions: PhysicalSize<u32>,
@@ -121,21 +124,9 @@ impl Renderer {
             },
             multiview: None,
         });
-
+        let vertex_buffer = Buffer::new(&device, VERTICES, BufferUsages::VERTEX | BufferUsages::COPY_DST);
+        let index_buffer = Buffer::new(&device, INDICES, BufferUsages::INDEX);
         
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&VERTICES),
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-        });
-
-        let index_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: BufferUsages::INDEX,
-            }
-        );
         let renderer = Self {
             surface,
             device,
@@ -150,7 +141,7 @@ impl Renderer {
                 b: 0.5,
                 a: 1.0,
             },
-            
+
             index_buffer,
         };
         Ok(renderer)
@@ -182,9 +173,9 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
             render_pass.set_pipeline(&self.pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1)
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.data().slice(..));
+            render_pass.set_index_buffer(self.index_buffer.data().slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..self.index_buffer.len() as u32, 0, 0..1)
             // render_pass.draw(0..self.vertices.len() as u32, 0..1);
         }
         return texture;

@@ -50,17 +50,12 @@ impl EguiInstance {
             .resizable(true)
             .title_bar(false)
             .show(&self.platform.context(), |ui| {
-            
                 ui.label("Upper Vertex X position");
                 let slider = ui.add(egui::Slider::new(&mut self.x, -1.0..=1.0));
-                if slider.changed() {
-                   
-                }
+                if slider.changed() {}
                 ui.label("Upper Vertex Y position");
                 let slider = ui.add(egui::Slider::new(&mut self.y, -1.0..=1.0));
-                if slider.changed() {
-                   
-                }
+                if slider.changed() {}
             });
 
         let full_output = self.platform.end_frame(None);

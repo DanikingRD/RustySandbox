@@ -5,6 +5,8 @@ use tracing::{span, Level};
 use tracing_subscriber::util::SubscriberInitExt;
 use winit::{event, event_loop::EventLoop};
 
+mod buffer;
+mod camera;
 mod client;
 mod cube;
 mod egui_instance;
