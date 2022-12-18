@@ -1,5 +1,5 @@
 use tracing::info;
-use vek::{Vec2, Vec3, FrustumPlanes, Mat4};
+use vek::{FrustumPlanes, Mat4, Vec2, Vec3};
 use wgpu::{util::DeviceExt, BufferUsages, CommandEncoder, SurfaceTexture, TextureUsages};
 use winit::dpi::PhysicalSize;
 
@@ -78,12 +78,13 @@ impl Renderer {
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
         };
         surface.configure(&device, &surface_cfg);
-    
+
         let camera_pos = Vec3::new(0.0, 0.0, -3.0);
         let target = Vec3::zero();
         let camera = Camera::new(camera_pos, target);
         let mut camera_buffer_data = CameraBufferData::new();
-        camera_buffer_data.set_mvp_from_mat(camera.build_mvp(dimensions.x as f32, dimensions.y as f32));
+        camera_buffer_data
+            .set_mvp_from_mat(camera.build_mvp(dimensions.x as f32, dimensions.y as f32));
         let camera_buffer = Buffer::new(
             &device,
             &[camera_buffer_data],

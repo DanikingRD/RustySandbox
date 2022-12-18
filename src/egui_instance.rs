@@ -7,7 +7,11 @@ use tracing::{span, Level};
 use vek::{Mat4, Vec2, Vec3};
 use wgpu::{CommandEncoder, SurfaceTexture};
 
-use crate::{camera::{CameraBufferData, DEFAULT_VERTICAL_FOV}, renderer::Renderer, vertex::Vertex};
+use crate::{
+    camera::{CameraBufferData, DEFAULT_VERTICAL_FOV},
+    renderer::Renderer,
+    vertex::Vertex,
+};
 
 pub struct EguiInstance {
     pub platform: Platform,
@@ -52,7 +56,11 @@ impl EguiInstance {
                 fn update_camera(renderer: &mut Renderer, w: f32, h: f32) {
                     let mvp = renderer.camera.build_mvp(w, h);
                     renderer.camera_projection.set_mvp_from_mat(mvp);
-                    renderer.camera_buffer.update(&renderer.queue, &[renderer.camera_projection], 0);
+                    renderer.camera_buffer.update(
+                        &renderer.queue,
+                        &[renderer.camera_projection],
+                        0,
+                    );
                 }
                 let w = renderer.resolution.x as f32;
                 let h = renderer.resolution.y as f32;
@@ -84,8 +92,6 @@ impl EguiInstance {
                     update_camera(renderer, w, h);
                 }
             });
-
-            
 
         let full_output = self.platform.end_frame(None);
 

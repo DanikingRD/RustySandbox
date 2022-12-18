@@ -36,7 +36,7 @@ impl Window {
 
     pub fn handle_window_events(
         &mut self,
-        event: event::WindowEvent,
+        event: &event::WindowEvent,
         control_flow: &mut winit::event_loop::ControlFlow,
         renderer: &mut Renderer,
     ) {
@@ -45,10 +45,10 @@ impl Window {
                 self.on_close();
                 *control_flow = ControlFlow::Exit;
             }
-            WindowEvent::Resized(size) => renderer.resize(size),
+            WindowEvent::Resized(size) => renderer.resize(*size),
             // Not sure when is this even emitted.
             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                renderer.resize(*new_inner_size)
+                renderer.resize(**new_inner_size)
             }
             WindowEvent::KeyboardInput { input, .. } => {}
             _ => (),

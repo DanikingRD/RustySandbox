@@ -44,7 +44,9 @@ pub fn run(runnable: EventLoop<()>, mut client: Client) {
                 if window_id == client.window_id() {
                     client
                         .window
-                        .handle_window_events(event, control_flow, &mut client.renderer)
+                        .handle_window_events(&event, control_flow, &mut client.renderer);
+
+                    client.update(&event);
                 }
             }
             event::Event::MainEventsCleared => {
