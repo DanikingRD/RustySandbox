@@ -4,7 +4,7 @@ use winit::dpi::PhysicalSize;
 
 use crate::{
     error::RendererError,
-    vertex::{Vertex, INDICES, VERTICES}, buffer::{Buffer},
+    vertex::{Vertex, INDICES, VERTICES}, buffer::{Buffer}, camera::{Camera, CameraUniform},
 };
 /// The `Renderer` is the SandBox's rendering system.
 /// It can interact with the GPU.  
@@ -126,7 +126,9 @@ impl Renderer {
         });
         let vertex_buffer = Buffer::new(&device, VERTICES, BufferUsages::VERTEX | BufferUsages::COPY_DST);
         let index_buffer = Buffer::new(&device, INDICES, BufferUsages::INDEX);
-        
+        let camera = Camera::new(90.0);
+        let camera_buffer = CameraUniform::new();
+        // camera_buffer.update_view_proj(&camera, size);
         let renderer = Self {
             surface,
             device,
