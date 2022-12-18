@@ -22,7 +22,10 @@ impl Window {
         let window = builder.build(&event_loop).unwrap();
 
         let size = window.inner_size();
-        let this = Self { winit: window, resolution: Vec2::new(size.width, size.height) };
+        let this = Self {
+            winit: window,
+            resolution: Vec2::new(size.width, size.height),
+        };
         let renderer = renderer::Renderer::new(&this)?;
 
         Ok((this, event_loop, renderer))

@@ -11,7 +11,6 @@ pub struct Buffer<T> {
     len: usize,
     /// Describe the type of this buffer
     data_type: PhantomData<T>,
-
 }
 impl<T: Pod> Buffer<T> {
     /// Buffer constructor.
@@ -27,6 +26,16 @@ impl<T: Pod> Buffer<T> {
             len: data.len(),
             data_type: PhantomData,
         }
+    }
+
+    pub fn update(&mut self, queue: &wgpu::Queue, data: &[T], offset: usize) {
+        let data = bytemuck::cast_slice(data);
+        // TODO: track previous content to avoid unnecessary writes if the content hasn't changed
+        queue.write_buffer(
+            &self.data,
+            offset as u64 * std::mem::size_of::<T>() as u64,
+            data,
+        );
     }
     /// Returns the GPU-accessible buffer.
     pub fn data(&self) -> &wgpu::Buffer {

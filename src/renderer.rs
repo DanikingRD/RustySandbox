@@ -1,11 +1,14 @@
 use tracing::info;
-use vek::Vec2;
+use vek::{Vec2, Vec3};
 use wgpu::{util::DeviceExt, BufferUsages, CommandEncoder, SurfaceTexture, TextureUsages};
 use winit::dpi::PhysicalSize;
 
 use crate::{
+    buffer::Buffer,
+    camera::{Camera, CameraProjection},
     error::RendererError,
-    vertex::{Vertex, INDICES, VERTICES}, buffer::{Buffer}, camera::{Camera, CameraProjection}, window::Window,
+    vertex::{Vertex, INDICES, VERTICES},
+    window::Window,
 };
 /// The `Renderer` is the SandBox's rendering system.
 /// It can interact with the GPU.  
@@ -15,14 +18,17 @@ pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub vertex_buffer: Buffer<Vertex>,
+    pub camera_buffer: Buffer<CameraProjection>,
     resolution: Vec2<u32>,
     index_buffer: Buffer<u16>,
     pipeline: wgpu::RenderPipeline,
     clear_color: wgpu::Color,
-    camera_buffer: Buffer<CameraProjection>,
     camera_projection: CameraProjection,
     camera_bind_group: wgpu::BindGroup,
     camera: Camera,
+    pub object_pos: Vec3<f32>,
+    pub scale: Vec3<f32>,
+    pub rotation: Vec3<f32>,
 }
 
 impl Renderer {
@@ -75,16 +81,25 @@ impl Renderer {
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
         };
         surface.configure(&device, &surface_cfg);
-
-        let camera = Camera::new(45.0);
+        let obj_pos = Vec3::zero();
+        let scale: Vec3<f32> = Vec3::new(1.0, 1.0, 1.0);
+        let rotation: Vec3<f32> = Vec3::zero();
+        let camera = Camera::new(45.0, obj_pos, scale, rotation);
         let mut projection = CameraProjection::new();
         // Cast to f32
-        projection.update_view_proj(&camera, &Vec2::new(dimensions.x as f32, dimensions.y as f32));
-        let camera_buffer = Buffer::new(&device, &[projection], BufferUsages::UNIFORM | BufferUsages::COPY_DST);
-        
-        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
+        projection.update_view_proj(
+            &camera,
+            &Vec3::new(dimensions.x as f32, dimensions.y as f32, 0.0),
+        );
+        let camera_buffer = Buffer::new(
+            &device,
+            &[projection],
+            BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        );
+
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
@@ -93,16 +108,13 @@ impl Renderer {
                         min_binding_size: None,
                     },
                     count: None,
-                }
-            ],
-            label: Some("camera_bind_group_layout"),
-        });
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout Descriptor"),
-            bind_group_layouts: &[
-                &camera_bind_group_layout,
-            ],
+            bind_group_layouts: &[&camera_bind_group_layout],
             push_constant_ranges: &[],
         });
 
@@ -149,22 +161,22 @@ impl Renderer {
             },
             multiview: None,
         });
-        let vertex_buffer = Buffer::new(&device, VERTICES, BufferUsages::VERTEX | BufferUsages::COPY_DST);
+        let vertex_buffer = Buffer::new(
+            &device,
+            VERTICES,
+            BufferUsages::VERTEX | BufferUsages::COPY_DST,
+        );
         let index_buffer = Buffer::new(&device, INDICES, BufferUsages::INDEX);
-       
-        
+
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_buffer.data().as_entire_binding(),
-                }
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.data().as_entire_binding(),
+            }],
             label: Some("camera_bind_group"),
         });
-        
-        
+
         let renderer = Self {
             surface,
             device,
@@ -183,8 +195,10 @@ impl Renderer {
             camera_buffer,
             camera_projection: projection,
             camera,
-            camera_bind_group
-
+            camera_bind_group,
+            object_pos: obj_pos,
+            scale,
+            rotation,
         };
         Ok(renderer)
     }
@@ -217,7 +231,10 @@ impl Renderer {
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.data().slice(..));
-            render_pass.set_index_buffer(self.index_buffer.data().slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(
+                self.index_buffer.data().slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
             render_pass.draw_indexed(0..self.index_buffer.len() as u32, 0, 0..1);
             // render_pass.draw(0..self.vertices.len() as u32, 0..1);
         }

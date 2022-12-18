@@ -1,23 +1,39 @@
-use vek::{Mat4, Vec2, vec2, Vec3};
+use vek::{Mat4, Vec2, Vec3};
 
 pub struct Camera {
-    fov: f32
+    fov: f32,
+    pos: Vec3<f32>,
+    translation: Vec3<f32>,
+    scale: Vec3<f32>,
+    rotation: Vec3<f32>,
 }
 impl Camera {
-    pub fn new(fov: f32) -> Self {
+    pub fn new(
+        fov: f32,
+        translation: Vec3<f32>,
+        scale: Vec3<f32>,
+        rotation_deg: Vec3<f32>,
+    ) -> Self {
         Self {
             fov,
+            pos: Vec3::zero(),
+            translation,
+            scale,
+            rotation: Vec3::new(
+                rotation_deg.x.to_radians(),
+                rotation_deg.y.to_radians(),
+                rotation_deg.z.to_radians(),
+            ),
         }
     }
-    pub fn create_projection(&self, size: &Vec2<f32>) -> Mat4<f32> {
-        // let proj: Mat4<f32> = Mat4::perspective_lh_zo(2.0, size.x / size.y , 1.0, 100.0);
-        
-        // let model = Vec3::new(0.0, 0.0, 3.0);
-        // return proj.scaled_3d(model);
-        return Mat4::identity();
+    pub fn create_projection(&self, size: &Vec3<f32>) -> Mat4<f32> {
+        let mat4x4: Mat4<f32> = Mat4::translation_3d(self.translation)
+            .scaled_3d(self.scale)
+            .rotated_x(self.rotation.x)
+            .rotated_y(self.rotation.y);
+        return mat4x4;
     }
 }
-
 
 // We need this for Rust to store our data correctly for the shaders
 #[repr(C)]
@@ -30,17 +46,16 @@ pub struct CameraProjection {
 }
 
 impl CameraProjection {
-    pub  fn new() -> Self {
-    
+    pub fn new() -> Self {
         Self {
-            view_proj: Mat4::identity().into_row_arrays()
+            view_proj: Mat4::identity().into_col_arrays(),
         }
     }
+    pub fn new_with_data(data: [[f32; 4]; 4]) -> Self {
+        Self { view_proj: data }
+    }
 
-    pub fn update_view_proj(&mut self, camera: &Camera, size: &Vec2<f32>) {
-        self.view_proj = camera.create_projection(size).into_row_arrays();
+    pub fn update_view_proj(&mut self, camera: &Camera, size: &Vec3<f32>) {
+        self.view_proj = camera.create_projection(size).into_col_arrays();
     }
 }
-
- 
-
