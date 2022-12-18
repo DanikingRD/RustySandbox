@@ -1,61 +1,65 @@
-use vek::{Mat4, Vec2, Vec3};
+use vek::{Mat4, Vec3};
 
+
+pub const DEFAULT_VERTICAL_FOV: f32 = 45.0;
+
+/// Fly style camera that allows to freely move around in a 3D scene. 
 pub struct Camera {
-    fov: f32,
-    pos: Vec3<f32>,
-    translation: Vec3<f32>,
-    scale: Vec3<f32>,
-    rotation: Vec3<f32>,
+    /// Field Of View in radians
+    pub fov: f32,
+    pub eye: Vec3<f32>,
+    pub target: Vec3<f32>
+
 }
 impl Camera {
     pub fn new(
-        fov: f32,
-        translation: Vec3<f32>,
-        scale: Vec3<f32>,
-        rotation_deg: Vec3<f32>,
+        eye: Vec3<f32>,
+        target: Vec3<f32>
     ) -> Self {
         Self {
-            fov,
-            pos: Vec3::zero(),
-            translation,
-            scale,
-            rotation: Vec3::new(
-                rotation_deg.x.to_radians(),
-                rotation_deg.y.to_radians(),
-                rotation_deg.z.to_radians(),
-            ),
+            fov: DEFAULT_VERTICAL_FOV,
+            eye,
+            target
         }
     }
-    pub fn create_projection(&self, size: &Vec3<f32>) -> Mat4<f32> {
-        let mat4x4: Mat4<f32> = Mat4::translation_3d(self.translation)
-            .scaled_3d(self.scale)
-            .rotated_x(self.rotation.x)
-            .rotated_y(self.rotation.y);
-        return mat4x4;
+    pub fn build_mvp(&self, width: f32, height: f32) -> Mat4<f32> {
+        let model = Mat4::rotation_3d(30.0f32.to_radians(), Vec3::unit_x());
+        let projection: Mat4<f32> = Mat4::perspective_fov_lh_zo(self.fov.to_radians(), width, height, 0.1, 100.0);
+
+        let camera_z = (self.eye - self.target).normalized();
+        let camera_y: Vec3<f32> = Vec3::unit_y();
+     //   let camera_x = camera_y.cross(camera_z); // right vector
+        let view: Mat4<f32> = Mat4::look_at_lh(self.eye, self.target, camera_y);
+        return projection * view * model;
     }
 }
 
 // We need this for Rust to store our data correctly for the shaders
 #[repr(C)]
 // This is so we can store this in a buffer
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct CameraProjection {
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CameraBufferData {
     // We can't use cgmath with bytemuck directly so we'll have
     // to convert the Matrix4 into a 4x4 f32 array
-    view_proj: [[f32; 4]; 4],
+    /// Model View Projection Matrix
+    pub mvp: [[f32; 4]; 4],
 }
 
-impl CameraProjection {
+impl CameraBufferData {
     pub fn new() -> Self {
         Self {
-            view_proj: Mat4::identity().into_col_arrays(),
+            mvp: Mat4::identity().into_col_arrays(),
         }
     }
     pub fn new_with_data(data: [[f32; 4]; 4]) -> Self {
-        Self { view_proj: data }
+        Self { mvp: data }
     }
 
-    pub fn update_view_proj(&mut self, camera: &Camera, size: &Vec3<f32>) {
-        self.view_proj = camera.create_projection(size).into_col_arrays();
+    pub fn set_mvp(&mut self, mvp: [[f32; 4]; 4]) {
+        self.mvp = mvp;
+    }
+
+    pub fn set_mvp_from_mat(&mut self, mat4x4: Mat4<f32>) {
+        self.mvp = mat4x4.into_col_arrays()
     }
 }

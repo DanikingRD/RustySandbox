@@ -1,11 +1,11 @@
 use tracing::info;
-use vek::{Vec2, Vec3};
+use vek::{Vec2, Vec3, FrustumPlanes, Mat4};
 use wgpu::{util::DeviceExt, BufferUsages, CommandEncoder, SurfaceTexture, TextureUsages};
 use winit::dpi::PhysicalSize;
 
 use crate::{
     buffer::Buffer,
-    camera::{Camera, CameraProjection},
+    camera::{Camera, CameraBufferData},
     error::RendererError,
     vertex::{Vertex, INDICES, VERTICES},
     window::Window,
@@ -18,17 +18,14 @@ pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub vertex_buffer: Buffer<Vertex>,
-    pub camera_buffer: Buffer<CameraProjection>,
-    resolution: Vec2<u32>,
+    pub camera_buffer: Buffer<CameraBufferData>,
+    pub resolution: Vec2<u32>,
     index_buffer: Buffer<u16>,
     pipeline: wgpu::RenderPipeline,
     clear_color: wgpu::Color,
-    camera_projection: CameraProjection,
+    pub camera_projection: CameraBufferData,
     camera_bind_group: wgpu::BindGroup,
-    camera: Camera,
-    pub object_pos: Vec3<f32>,
-    pub scale: Vec3<f32>,
-    pub rotation: Vec3<f32>,
+    pub camera: Camera,
 }
 
 impl Renderer {
@@ -81,19 +78,15 @@ impl Renderer {
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
         };
         surface.configure(&device, &surface_cfg);
-        let obj_pos = Vec3::zero();
-        let scale: Vec3<f32> = Vec3::new(1.0, 1.0, 1.0);
-        let rotation: Vec3<f32> = Vec3::zero();
-        let camera = Camera::new(45.0, obj_pos, scale, rotation);
-        let mut projection = CameraProjection::new();
-        // Cast to f32
-        projection.update_view_proj(
-            &camera,
-            &Vec3::new(dimensions.x as f32, dimensions.y as f32, 0.0),
-        );
+    
+        let camera_pos = Vec3::new(0.0, 0.0, -3.0);
+        let target = Vec3::zero();
+        let camera = Camera::new(camera_pos, target);
+        let mut camera_buffer_data = CameraBufferData::new();
+        camera_buffer_data.set_mvp_from_mat(camera.build_mvp(dimensions.x as f32, dimensions.y as f32));
         let camera_buffer = Buffer::new(
             &device,
-            &[projection],
+            &[camera_buffer_data],
             BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         );
 
@@ -193,12 +186,9 @@ impl Renderer {
             },
             index_buffer,
             camera_buffer,
-            camera_projection: projection,
+            camera_projection: camera_buffer_data,
             camera,
             camera_bind_group,
-            object_pos: obj_pos,
-            scale,
-            rotation,
         };
         Ok(renderer)
     }
