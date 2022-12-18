@@ -1,4 +1,4 @@
-use vek::{Mat4, Vec2};
+use vek::{Mat4, Vec2, vec2, Vec3};
 
 pub struct Camera {
     fov: f32
@@ -9,9 +9,12 @@ impl Camera {
             fov,
         }
     }
-    pub fn create_projection(&self, size: Vec2<f32>) -> Mat4<f32> {
-        let proj: Mat4<f32> = Mat4::perspective_fov_lh_zo(self.fov, size.x, size.y, 1.0, 100.0);
-        return proj;
+    pub fn create_projection(&self, size: &Vec2<f32>) -> Mat4<f32> {
+        // let proj: Mat4<f32> = Mat4::perspective_lh_zo(2.0, size.x / size.y , 1.0, 100.0);
+        
+        // let model = Vec3::new(0.0, 0.0, 3.0);
+        // return proj.scaled_3d(model);
+        return Mat4::identity();
     }
 }
 
@@ -20,13 +23,13 @@ impl Camera {
 #[repr(C)]
 // This is so we can store this in a buffer
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct CameraUniform {
+pub struct CameraProjection {
     // We can't use cgmath with bytemuck directly so we'll have
     // to convert the Matrix4 into a 4x4 f32 array
     view_proj: [[f32; 4]; 4],
 }
 
-impl CameraUniform {
+impl CameraProjection {
     pub  fn new() -> Self {
     
         Self {
@@ -34,11 +37,10 @@ impl CameraUniform {
         }
     }
 
-    pub fn update_view_proj(&mut self, camera: &Camera, size: Vec2<f32>) {
+    pub fn update_view_proj(&mut self, camera: &Camera, size: &Vec2<f32>) {
         self.view_proj = camera.create_projection(size).into_row_arrays();
     }
 }
 
  
 
- 

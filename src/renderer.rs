@@ -1,10 +1,11 @@
 use tracing::info;
-use wgpu::{util::DeviceExt, BufferUsages, CommandEncoder, SurfaceTexture};
+use vek::Vec2;
+use wgpu::{util::DeviceExt, BufferUsages, CommandEncoder, SurfaceTexture, TextureUsages};
 use winit::dpi::PhysicalSize;
 
 use crate::{
     error::RendererError,
-    vertex::{Vertex, INDICES, VERTICES}, buffer::{Buffer}, camera::{Camera, CameraUniform},
+    vertex::{Vertex, INDICES, VERTICES}, buffer::{Buffer}, camera::{Camera, CameraProjection}, window::Window,
 };
 /// The `Renderer` is the SandBox's rendering system.
 /// It can interact with the GPU.  
@@ -14,22 +15,24 @@ pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub vertex_buffer: Buffer<Vertex>,
+    resolution: Vec2<u32>,
     index_buffer: Buffer<u16>,
-
-    /// Content of the inner window, excluding the title bar and borders.
-    dimensions: PhysicalSize<u32>,
     pipeline: wgpu::RenderPipeline,
     clear_color: wgpu::Color,
+    camera_buffer: Buffer<CameraProjection>,
+    camera_projection: CameraProjection,
+    camera_bind_group: wgpu::BindGroup,
+    camera: Camera,
 }
 
 impl Renderer {
-    pub fn new(window: &winit::window::Window) -> Result<Self, RendererError> {
+    pub fn new(window: &Window) -> Result<Self, RendererError> {
         let backend = wgpu::Backends::all();
         let instance = wgpu::Instance::new(backend);
 
         // This is unsafe because the window handle must be valid, if you find a way to
         // have an invalid winit::Window then you have bigger issues
-        let surface = unsafe { instance.create_surface(&window) };
+        let surface = unsafe { instance.create_surface(&window.winit()) };
 
         // Collect and Log adapters
         let adapters = instance
@@ -61,23 +64,45 @@ impl Renderer {
             },
             None,
         ))?;
-
-        let dimensions = window.inner_size();
-
+        let dimensions = window.resolution();
         let format = surface.get_supported_formats(&adapter)[0];
         let surface_cfg = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format,
-            width: dimensions.width,
-            height: dimensions.height,
+            width: dimensions.x,
+            height: dimensions.y,
             present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
         };
         surface.configure(&device, &surface_cfg);
 
+        let camera = Camera::new(45.0);
+        let mut projection = CameraProjection::new();
+        // Cast to f32
+        projection.update_view_proj(&camera, &Vec2::new(dimensions.x as f32, dimensions.y as f32));
+        let camera_buffer = Buffer::new(&device, &[projection], BufferUsages::UNIFORM | BufferUsages::COPY_DST);
+        
+        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }
+            ],
+            label: Some("camera_bind_group_layout"),
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Pipeline Layout Descriptor"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[
+                &camera_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -126,15 +151,26 @@ impl Renderer {
         });
         let vertex_buffer = Buffer::new(&device, VERTICES, BufferUsages::VERTEX | BufferUsages::COPY_DST);
         let index_buffer = Buffer::new(&device, INDICES, BufferUsages::INDEX);
-        let camera = Camera::new(90.0);
-        let camera_buffer = CameraUniform::new();
-        // camera_buffer.update_view_proj(&camera, size);
+       
+        
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.data().as_entire_binding(),
+                }
+            ],
+            label: Some("camera_bind_group"),
+        });
+        
+        
         let renderer = Self {
             surface,
             device,
             queue,
             surface_config: surface_cfg,
-            dimensions,
+            resolution: *dimensions,
             pipeline,
             vertex_buffer,
             clear_color: wgpu::Color {
@@ -143,8 +179,12 @@ impl Renderer {
                 b: 0.5,
                 a: 1.0,
             },
-
             index_buffer,
+            camera_buffer,
+            camera_projection: projection,
+            camera,
+            camera_bind_group
+
         };
         Ok(renderer)
     }
@@ -175,21 +215,22 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
             render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.data().slice(..));
             render_pass.set_index_buffer(self.index_buffer.data().slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.index_buffer.len() as u32, 0, 0..1)
+            render_pass.draw_indexed(0..self.index_buffer.len() as u32, 0, 0..1);
             // render_pass.draw(0..self.vertices.len() as u32, 0..1);
         }
         return texture;
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.dimensions = new_size;
+        self.resolution = Vec2::new(new_size.width, new_size.height);
         // Resize with 0 width and height is used by winit to signal a minimize event on Windows.
         // See: https://github.com/rust-windowing/winit/issues/208
         // This solves an issue where the app would panic when minimizing on Windows.
-        self.surface_config.width = self.dimensions.width.max(1);
-        self.surface_config.height = self.dimensions.height.max(1);
+        self.surface_config.width = self.resolution.x.max(1);
+        self.surface_config.height = self.resolution.y.max(1);
         self.surface.configure(&self.device, &self.surface_config);
     }
 }

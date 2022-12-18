@@ -1,3 +1,4 @@
+use vek::Vec2;
 use winit::{
     event::{self, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -11,6 +12,7 @@ use crate::{
 
 pub struct Window {
     winit: window::Window,
+    resolution: Vec2<u32>,
 }
 
 impl Window {
@@ -19,9 +21,9 @@ impl Window {
         let builder = window::WindowBuilder::new().with_title("Rusty Sandbox");
         let window = builder.build(&event_loop).unwrap();
 
-        let renderer = renderer::Renderer::new(&window)?;
-
-        let this = Self { winit: window };
+        let size = window.inner_size();
+        let this = Self { winit: window, resolution: Vec2::new(size.width, size.height) };
+        let renderer = renderer::Renderer::new(&this)?;
 
         Ok((this, event_loop, renderer))
     }
@@ -48,6 +50,9 @@ impl Window {
             WindowEvent::KeyboardInput { input, .. } => {}
             _ => (),
         }
+    }
+    pub fn resolution(&self) -> &Vec2<u32> {
+        &self.resolution
     }
     pub fn on_close(&mut self) {}
 }

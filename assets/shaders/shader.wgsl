@@ -1,3 +1,9 @@
+struct CameraProjection {
+    proj: mat4x4<f32>
+}
+
+@group(0) @binding(0)
+var<uniform> camera: CameraProjection;
 
 struct VertexIn {
     @location(0) pos: vec3<f32>,
@@ -12,8 +18,8 @@ struct VertexOut {
 @vertex 
 fn vs_main(input: VertexIn) -> VertexOut {
     var v_out: VertexOut;
-    v_out.pos = vec4<f32>(input.pos, 1.0);
     v_out.color = input.color;
+    v_out.pos = camera.proj * vec4<f32>(input.pos, 1.0);
     return v_out;
 }
 
