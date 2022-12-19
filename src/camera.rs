@@ -10,6 +10,7 @@ pub struct Camera {
     pub eye: Vec3<f32>,
     pub target: Vec3<f32>,
     pub speed: f32,
+    pub up: Vec3<f32>,
 }
 impl Camera {
     /// Create a new [Camera] with the default parameters.
@@ -19,27 +20,32 @@ impl Camera {
             eye,
             target,
             speed: 0.1,
+            up: Vec3::unit_y(),
         }
     }
     pub fn build_mvp(&self, width: f32, height: f32) -> Mat4<f32> {
         let model = Mat4::rotation_3d(30.0f32.to_radians(), Vec3::unit_x());
         let projection: Mat4<f32> =
             Mat4::perspective_fov_lh_zo(self.fov.to_radians(), width, height, 0.1, 100.0);
-
-        let camera_z = (self.eye - self.target).normalized();
-        let camera_y: Vec3<f32> = Vec3::unit_y();
-        //   let camera_x = camera_y.cross(camera_z); // right vector
-        let view: Mat4<f32> = Mat4::look_at_lh(self.eye, self.target, camera_y);
+        let view: Mat4<f32> = Mat4::look_at_lh(self.eye, self.target, self.up);
         return projection * view * model;
     }
+
     pub fn on_update(&mut self, keycode: &VirtualKeyCode) {
-        let forward = (self.target - self.eye).normalized();
+        let forward_vec_normal = (self.target - self.eye).normalized();
+        let right_vec_normal = self.up.cross(forward_vec_normal).normalized();
         match keycode {
             VirtualKeyCode::W | VirtualKeyCode::Up => {
-                self.eye += forward * self.speed;
-            },
+                self.eye += forward_vec_normal * self.speed;
+            }
             VirtualKeyCode::S | VirtualKeyCode::Down => {
-                self.eye -= forward * self.speed;
+                self.eye -= forward_vec_normal * self.speed;
+            }
+            VirtualKeyCode::D | VirtualKeyCode::Right => {
+                self.eye += right_vec_normal * self.speed;
+            }
+            VirtualKeyCode::A | VirtualKeyCode::Left => {
+                self.eye -= right_vec_normal * self.speed;
             }
             _ => (),
         }

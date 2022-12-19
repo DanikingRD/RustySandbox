@@ -40,8 +40,14 @@ impl Client {
                 let w = self.window.resolution().x as f32;
                 let h = self.window.resolution().y as f32;
                 self.renderer.camera.on_update(keycode);
-                self.renderer.camera_projection.set_mvp_from_mat(self.renderer.camera.build_mvp(h, w));
-                self.renderer.camera_buffer.update(&self.renderer.queue, &[self.renderer.camera_projection], 0);
+                self.renderer
+                    .camera_projection
+                    .set_mvp_from_mat(self.renderer.camera.build_mvp(h, w));
+                self.renderer.camera_buffer.update(
+                    &self.renderer.queue,
+                    &[self.renderer.camera_projection],
+                    0,
+                );
             }
             _ => (),
         }

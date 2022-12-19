@@ -161,7 +161,7 @@ impl Renderer {
             BufferUsages::VERTEX | BufferUsages::COPY_DST,
         );
         let index_buffer = Buffer::new(&device, INDICES, BufferUsages::INDEX);
-
+        // let instance_buffer = Buffer::instance(&device, &[instance_data]);
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {

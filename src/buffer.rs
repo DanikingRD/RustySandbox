@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use bytemuck::Pod;
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, BufferUsages};
 
 /// Represents a generic buffer  
 pub struct Buffer<T> {
@@ -26,6 +26,10 @@ impl<T: Pod> Buffer<T> {
             len: data.len(),
             data_type: PhantomData,
         }
+    }
+    /// Creates a new Instance Buffer
+    pub fn instance(device: &wgpu::Device, data: &[T]) -> Self {
+        Self::new(device, data, BufferUsages::VERTEX)
     }
 
     pub fn update(&mut self, queue: &wgpu::Queue, data: &[T], offset: usize) {
