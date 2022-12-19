@@ -80,7 +80,7 @@ impl Renderer {
         surface.configure(&device, &surface_cfg);
 
         let camera_pos = Vec3::new(0.0, 0.0, -3.0);
-        let target = Vec3::zero();
+        let target = Vec3::zero(); // Undefined direction
         let camera = Camera::new(camera_pos, target);
         let mut camera_buffer_data = CameraBufferData::new();
         camera_buffer_data

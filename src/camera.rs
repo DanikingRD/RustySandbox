@@ -24,7 +24,7 @@ impl Camera {
         }
     }
     pub fn build_mvp(&self, width: f32, height: f32) -> Mat4<f32> {
-        let model = Mat4::rotation_3d(30.0f32.to_radians(), Vec3::unit_x());
+        let model = Mat4::translation_3d(Vec3::new(0.0, 0.0, 0.0));
         let projection: Mat4<f32> =
             Mat4::perspective_fov_lh_zo(self.fov.to_radians(), width, height, 0.1, 100.0);
         let view: Mat4<f32> = Mat4::look_at_lh(self.eye, self.target, self.up);
