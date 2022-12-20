@@ -3,7 +3,10 @@ use error::RendererError;
 
 use tracing::{span, Level};
 use tracing_subscriber::util::SubscriberInitExt;
-use winit::{event, event_loop::EventLoop};
+use winit::{
+    event::{self, DeviceEvent},
+    event_loop::EventLoop,
+};
 
 mod buffer;
 mod camera;
@@ -48,6 +51,13 @@ pub fn run(runnable: EventLoop<()>, mut client: Client) {
 
                     client.update(&event);
                 }
+            }
+            event::Event::DeviceEvent {
+                device_id,
+                event: DeviceEvent::MouseMotion { delta },
+            } => {
+                client.renderer.camera.on_mouse_input(delta.0, delta.1);
+                client.update_camera();
             }
             event::Event::MainEventsCleared => {
                 client.window.winit().request_redraw();

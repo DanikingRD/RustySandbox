@@ -31,7 +31,7 @@ impl Camera {
         return projection * view * model;
     }
 
-    pub fn on_update(&mut self, keycode: &VirtualKeyCode) {
+    pub fn on_key_pressed(&mut self, keycode: &VirtualKeyCode) {
         let forward_vec_normal = (self.target - self.eye).normalized();
         let right_vec_normal = self.up.cross(forward_vec_normal).normalized();
         match keycode {
@@ -49,6 +49,10 @@ impl Camera {
             }
             _ => (),
         }
+    }
+    pub fn on_mouse_input(&mut self, dx: f64, dy: f64) {
+        let v: Vec3<f32> = Vec3::new(dx as f32 * self.speed, dy as f32 * self.speed, 0.0);
+        self.eye += v;
     }
 }
 
